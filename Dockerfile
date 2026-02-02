@@ -1,17 +1,25 @@
+# build stage
 FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
+
+RUN apk --no-cache add git
+
+COPY go.mod go.sum ./
+RUN go mod download
+
 COPY . .
 
-RUN go mod download
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bot .
+RUN CGO_ENABLED=0 GOOS=linux go build -o bot ./cmd/bot
 
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
+# final image
+FROM alpine:3.19
+
 WORKDIR /app
 
-COPY --from=builder /app/bot .
-COPY config/config.yml ./config/
+COPY --from=builder /app/bot /app/bot
+COPY internal/db/migrations.sql /app/internal/db/migrations.sql
+COPY .env /app/.env
 
-CMD ["./bot"]
+CMD ["/app/bot"]
 
